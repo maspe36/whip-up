@@ -1,0 +1,14 @@
+let gpp = Compiler {
+    path: PathBuf::from("/usr/bin/g++"),
+};
+
+let example_program = Target {
+    name: String::from("example_program"),
+    compiler: gpp,
+    files: vec![
+        PathBuf::from("main.cpp"),
+        PathBuf::from("foo/bar.hpp")
+    ]
+};
+
+example_program.build()
