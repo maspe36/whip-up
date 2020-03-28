@@ -7,7 +7,6 @@ use std::process::Command;
 use std::io;
 use std::io::Write;
 
-mod ast;
 mod build;
 mod utils;
 
@@ -25,11 +24,16 @@ fn main() {
     utils::create_tmp_whip_dir();
 
     let directory = String::from(matches.value_of("input").unwrap());
-    let statements = ast::parse(directory.clone()).unwrap();
+    let statements = build::parse(directory.clone()).unwrap();
     let intermediate_executable_path = build::compile(&statements, directory.clone());
 
     println!("Setting the current dir to the input dir...");
-    env::set_current_dir(directory.clone());
+    let cd_result = env::set_current_dir(directory.clone());
+
+    match cd_result {
+        Err(io_err) => println!("{}", io_err),
+        _ => {}
+    }
 
     println!("Building whip target binary...");
     let output = Command::new(intermediate_executable_path)

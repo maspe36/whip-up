@@ -1,12 +1,28 @@
-use quote::quote;
-use syn::Stmt;
 use std::io;
 use std::io::Write;
+use std::fs;
 use std::fs::File;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::process::Command;
 
+use syn;
+use syn::{Block, Stmt};
+use syn::parse::Parser;
+use quote::quote;
+use crate::utils::find_whip_file;
+
+
+pub fn parse(directory: String) -> syn::Result<Vec<Stmt>> {
+    println!("Searching for .whip file in {} ...", directory);
+    let whip_file = find_whip_file(directory).expect("No .whip file found");
+
+    println!("Loading .whip file {} ...", whip_file);
+    let code = fs::read_to_string(whip_file.clone()).expect("Unable to parse file");
+
+    println!("Parsing .whip file {} ...", whip_file);
+    Block::parse_within.parse_str(&code)
+}
 
 pub fn compile(statements: &Vec<Stmt>, directory: String) -> String {
     let whip_tokens = assemble_build_tokens(statements, directory);
