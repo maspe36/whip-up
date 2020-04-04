@@ -1,50 +1,16 @@
 use std::io;
 use std::io::Write;
-use std::fs;
-use std::fs::File;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
 use std::process::Command;
 
 use syn;
-use syn::{Block, Stmt};
-use syn::parse::Parser;
+use syn::Stmt;
 use quote::quote;
-use crate::utils::find_whip_file;
+use std::path::PathBuf;
 
+use crate::utils;
 
-pub fn parse(directory: String) -> syn::Result<Vec<Stmt>> {
-    println!("Searching for .whip file in {} ...", directory);
-    let whip_file = find_whip_file(directory).expect("No .whip file found");
-
-    println!("Loading .whip file {} ...", whip_file);
-    let code = fs::read_to_string(whip_file.clone()).expect("Unable to parse file");
-
-    println!("Parsing .whip file {} ...", whip_file);
-    Block::parse_within.parse_str(&code)
-}
-
-pub fn compile(statements: &Vec<Stmt>, directory: String) -> String {
-    let whip_tokens = assemble_build_tokens(statements, directory);
-    let source_hash = write_intermediate_file(whip_tokens.to_string().as_bytes()).unwrap();
-
-    println!("Compiling the whip build binary...");
-    //TODO Call rustc through the library interface instead of depending on its existence
-    let intermediate_executable_path = format!("/tmp/whip-up/{}", source_hash);
-    let output = Command::new("rustc")
-        .arg(format!("/tmp/whip-up/{}.rs", source_hash))
-        .args(&["-o", intermediate_executable_path.clone().as_str()])
-        .output()
-        .expect("Failed to run build");
-
-    println!("status: {}", output.status);
-    io::stdout().write_all(&output.stdout).unwrap();
-    io::stderr().write_all(&output.stderr).unwrap();
-
-    intermediate_executable_path
-}
-
-fn assemble_build_tokens(_statements: &Vec<Stmt>, _directory: String) -> proc_macro2::TokenStream {
+/// Assemble the parsed statements from the .whip file into a valid rust main module
+fn assemble_build_tokens(_statements: &Vec<Stmt>) -> proc_macro2::TokenStream {
     quote! {
         use std::path::PathBuf;
         use std::process;
@@ -92,16 +58,24 @@ fn assemble_build_tokens(_statements: &Vec<Stmt>, _directory: String) -> proc_ma
     }
 }
 
-fn write_intermediate_file(code: &[u8]) -> io::Result<String> {
-    let mut hasher = DefaultHasher::new();
+/// Compile the parsed statements into a build executable in the given directory
+pub fn compile(statements: &Vec<Stmt>, directory: &PathBuf) -> io::Result<PathBuf> {
+    let whip_tokens = assemble_build_tokens(statements);
+    let tmp_file_path = utils::write_tmp_file(&whip_tokens.to_string(), directory)?;
 
-    hasher.write(code);
+    println!("Compiling the whip build binary...");
+    //TODO Call rustc through the library interface instead of depending on its existence
+    let intermediate_executable_path = directory.join(utils::TMP_DIR).join("build");
 
-    let hash = hasher.finish().to_string().to_owned();
-    let file_path = format!("/tmp/whip-up/{}.rs", hash);
+    let output = Command::new("rustc")
+        .arg(tmp_file_path)
+        .arg("-o")
+        .arg(&intermediate_executable_path)
+        .output()?;
 
-    println!("Writing intermediate file {} ...", file_path);
-    let mut file = File::create(file_path.clone())?;
-    file.write_all(code)?;
-    Ok(hash)
+    println!("status: {}", output.status);
+    io::stdout().write_all(&output.stdout)?;
+    io::stderr().write_all(&output.stderr)?;
+
+    Ok(intermediate_executable_path)
 }
