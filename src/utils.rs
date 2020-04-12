@@ -26,9 +26,9 @@ pub fn write_tmp_file(code: &str, directory: &PathBuf) -> io::Result<PathBuf> {
 
     let file_path = tmp_dir_path.join("main.rs");
 
-    println!("Writing intermediate file {} ...", file_path.display());
-    let mut file = File::create(&file_path)?;
-    file.write_all(code.as_bytes())?;
+    println!("Writing intermediate file {}...", file_path.display());
+    let mut main_file = File::create(&file_path)?;
+    main_file.write_all(code.as_bytes())?;
 
     Ok(file_path)
 }

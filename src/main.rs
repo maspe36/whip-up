@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 mod build;
 mod utils;
+mod whip;
 
 static INPUT: &str = "input";
 
@@ -25,11 +26,15 @@ fn run(args: &ArgMatches) -> Result<(), Box<dyn Error>> {
     println!("Loading {}...", &whip_file.display().to_string());
     let whip_code = fs::read_to_string(&whip_file)?;
 
+    println!("Bundling whip lib...");
+    let whip_lib_str = include_str!("whip.rs");
+    let whip_statements = Block::parse_within.parse_str(&whip_lib_str)?;
+
     println!("Performing lexical analysis on {}...", &whip_file.display().to_string());
     let statements = Block::parse_within.parse_str(&whip_code)?;
 
     println!("Compiling build executable...");
-    let mut executable_path = build::compile(&statements, &directory)?;
+    let mut executable_path = build::compile(&whip_statements, &statements, &directory)?;
 
     if cfg!(windows) {
         // The binary ends with .exe on windows

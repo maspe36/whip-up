@@ -10,47 +10,9 @@ use std::path::PathBuf;
 use crate::utils;
 
 /// Assemble the parsed statements from the .whip file into a valid rust main module
-fn assemble_build_tokens(_statements: &Vec<Stmt>) -> proc_macro2::TokenStream {
+fn assemble_build_tokens(_whip_statements: &Vec<Stmt>, _statements: &Vec<Stmt>) -> proc_macro2::TokenStream {
     quote! {
-        use std::path::PathBuf;
-        use std::process;
-        use std::process::Command;
-
-        struct Compiler {
-            path: PathBuf
-        }
-
-        struct Target {
-            name: String,
-            compiler: Compiler,
-            files: Vec<PathBuf>
-        }
-
-        impl Target {
-            pub fn build(&self) {
-                let output = Command::new(
-                    self.compiler.path
-                        .clone()
-                        .into_os_string()
-                        .to_str()
-                        .unwrap())
-                    .args(&["-o", self.name.as_str()])
-                    .args(self.files.clone())
-                    .output()
-                    .expect("Failed to run build");
-
-                use std::io::{self, Write};
-
-                println!("status: {}", output.status);
-                io::stdout().write_all(&output.stdout).unwrap();
-                io::stderr().write_all(&output.stderr).unwrap();
-
-                if !output.status.success() {
-                    println!("Build failed");
-                    process::exit(1);
-                }
-            }
-        }
+        #(#_whip_statements)*
 
         fn main() {
             #(#_statements)*
@@ -59,9 +21,9 @@ fn assemble_build_tokens(_statements: &Vec<Stmt>) -> proc_macro2::TokenStream {
 }
 
 /// Compile the parsed statements into a build executable in the given directory
-pub fn compile(statements: &Vec<Stmt>, directory: &PathBuf) -> io::Result<PathBuf> {
-    let whip_tokens = assemble_build_tokens(statements);
-    let tmp_file_path = utils::write_tmp_file(&whip_tokens.to_string(), directory)?;
+pub fn compile(whip_statements: &Vec<Stmt>, statements: &Vec<Stmt>, directory: &PathBuf) -> io::Result<PathBuf> {
+    let main_tokens = assemble_build_tokens(whip_statements, statements);
+    let tmp_file_path = utils::write_tmp_file(&main_tokens.to_string(), directory)?;
 
     println!("Compiling the whip build binary...");
     //TODO Call rustc through the library interface instead of depending on its existence
